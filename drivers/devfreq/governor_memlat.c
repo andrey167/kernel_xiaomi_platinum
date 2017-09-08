@@ -249,6 +249,10 @@ static int devfreq_memlat_get_freq(struct devfreq *df,
 		    || !hw->core_stats[i].freq)
 			continue;
 
+		if (!hw->core_stats[i].inst_count
+		    || !hw->core_stats[i].freq)
+			continue;
+
 		if (ratio <= node->ratio_ceil
 		    && hw->core_stats[i].freq > max_freq) {
 			lat_dev = i;
