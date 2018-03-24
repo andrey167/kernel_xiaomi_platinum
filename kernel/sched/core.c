@@ -1250,12 +1250,28 @@ static const struct cpumask *adjust_cpumask(struct task_struct *p,
 		return cpu_perf_mask;
 
 	return req_mask;
+	}
+
+static void get_adjusted_cpumask(const struct task_struct *p,
+	struct cpumask *new_mask, const struct cpumask *old_mask)
+{
+	static const unsigned long little_cluster_cpus = 0xf;
+
+	/* Force all unbound kthreads onto the little cluster */
+	if (p->flags & PF_KTHREAD && cpumask_weight(old_mask) > 1)
+		cpumask_copy(new_mask, to_cpumask(&little_cluster_cpus));
+	else
+		cpumask_copy(new_mask, old_mask);
 }
 
 void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 {
 	struct rq *rq = task_rq(p);
 	bool queued, running;
+	cpumask_t adjusted_mask;
+
+	get_adjusted_cpumask(p, &adjusted_mask, new_mask);
+	new_mask = &adjusted_mask;
 
 	new_mask = adjust_cpumask(p, new_mask);
 
@@ -1299,7 +1315,10 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	struct rq *rq;
 	unsigned int dest_cpu;
 	int ret = 0;
-	cpumask_t allowed_mask;
+	cpumask_t allowed_mask, adjusted_mask;
+
+	get_adjusted_cpumask(p, &adjusted_mask, new_mask);
+	new_mask = &adjusted_mask;
 
 	new_mask = adjust_cpumask(p, new_mask);
 
