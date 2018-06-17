@@ -1238,6 +1238,17 @@ endif # CGROUPS
 
 config SCHED_HMP
 	bool "Scheduler support for heterogenous multi-processor systems"
+
+config SCHED_BOOST
+	bool "Scheduler boost support"
+	help
+	  Scheduler boost is a mechanism to temporarily place tasks on CPUs
+	  with higher capacity than those where a task would have normally
+	  ended up with their load characteristics.
+
+config SCHED_HMP
+	bool "Scheduler support for heterogenous multi-processor systems"
+	select SCHED_BOOST
 	depends on SMP && FAIR_GROUP_SCHED
 	help
 	  This feature will let the scheduler optimize task placement on
@@ -1383,6 +1394,7 @@ config CPUSETS_ASSIST
 
 config DYNAMIC_STUNE_BOOST
 	bool "Dynamic SchedTune boosting support"
+	select SCHED_BOOST
 	depends on SCHED_TUNE
 	help
 	  This option extends the SchedTune framework and provides APIs to

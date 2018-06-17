@@ -542,6 +542,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &three,
 	},
 	{
+
 		.procname	= "sched_short_burst_ns",
 		.data		= &sysctl_sched_short_burst,
 		.maxlen		= sizeof(unsigned int),
@@ -556,6 +557,17 @@ static struct ctl_table kern_table[] = {
 		.proc_handler   = proc_dointvec,
 	},
 #endif	/* CONFIG_SCHED_HMP */
+#ifdef CONFIG_SCHED_BOOST
+	{
+		.procname       = "sched_boost",
+		.data           = &sysctl_sched_boost,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = sched_boost_handler,
+		.extra1         = &zero,
+		.extra2         = &three,
+	},
+#endif /* CONFIG_SCHED_BOOST */
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.procname	= "sched_min_granularity_ns",
