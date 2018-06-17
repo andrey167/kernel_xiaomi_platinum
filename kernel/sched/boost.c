@@ -212,14 +212,20 @@ int sched_boost_handler(struct ctl_table *table, int write,
 	if (ret || !write)
 		goto done;
 
-#ifdef CONFIG_SCHED_HMP
 	if (verify_boost_params(old_val, *data)) {
+#ifdef CONFIG_SCHED_HMP
 		_sched_set_boost(old_val, *data);
+#endif
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+		if (*data > 0)
+			stune_boost("top-app");
+		else
+			reset_stune_boost("top-app");
+#endif
 	} else {
 		*data = old_val;
 		ret = -EINVAL;
 	}
-#endif
 
 done:
 #ifdef CONFIG_SCHED_HMP
