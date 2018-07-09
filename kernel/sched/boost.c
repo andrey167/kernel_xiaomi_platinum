@@ -27,6 +27,10 @@
 
 unsigned int sysctl_sched_boost;
 
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+static int boost_slot;
+#endif // CONFIG_DYNAMIC_STUNE_BOOST
+
 #ifdef CONFIG_SCHED_HMP
 static enum sched_boost_policy boost_policy;
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
@@ -218,9 +222,9 @@ int sched_boost_handler(struct ctl_table *table, int write,
 #endif
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
 		if (*data > 0)
-			stune_boost("top-app");
+			do_stune_sched_boost("top-app", &boost_slot);
 		else
-			reset_stune_boost("top-app");
+			reset_stune_boost("top-app", boost_slot);
 #endif
 	} else {
 		*data = old_val;
