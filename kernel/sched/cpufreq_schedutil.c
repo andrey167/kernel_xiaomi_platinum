@@ -769,7 +769,7 @@ static int sugov_init(struct cpufreq_policy *policy)
                 }
 	}
 
-	tunables->iowait_boost_enable = policy->iowait_boost_enable;
+		tunables->iowait_boost_enable = false;
 
         /* Hard-code some sane rate-limit values */
         tunables->up_rate_limit_us = 5000;
