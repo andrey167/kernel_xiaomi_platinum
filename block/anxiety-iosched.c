@@ -84,8 +84,6 @@ static uint16_t anxiety_dispatch_batch(struct request_queue *q)
 
 			if (!ret)
 				dispatched++;
-
-			dispatched++;
 		}
 
 		/* If we didn't have anything to dispatch; don't batch again */
