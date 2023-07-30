@@ -16,9 +16,19 @@ unsigned int input_boost_freq_lp = CONFIG_INPUT_BOOST_FREQ_LP;
 unsigned int input_boost_freq_hp = CONFIG_INPUT_BOOST_FREQ_PERF;
 unsigned short input_boost_duration = CONFIG_INPUT_BOOST_DURATION_MS;
 
+
 module_param(input_boost_freq_lp, uint, 0644);
 module_param(input_boost_freq_hp, uint, 0644);
 module_param(input_boost_duration, short, 0644);
+
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+static int dynamic_stune_boost;
+module_param(dynamic_stune_boost, uint, 0644);
+static bool stune_boost_active;
+static int boost_slot;
+static unsigned int dynamic_stune_boost_ms = 40;
+module_param(dynamic_stune_boost_ms, uint, 0644);
+#endif /* CONFIG_DYNAMIC_STUNE_BOOST */
 
 enum {
 	SCREEN_OFF,
@@ -89,6 +99,10 @@ static void __cpu_input_boost_kick(struct boost_drv *b)
 	if (test_bit(SCREEN_OFF, &b->state))
 		return;
 
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+	do_stune_boost("top-app", dynamic_stune_boost);
+#endif
+
 	set_bit(INPUT_BOOST, &b->state);
 	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
 			      msecs_to_jiffies(input_boost_duration)))
@@ -110,6 +124,10 @@ static void __cpu_input_boost_kick_max(struct boost_drv *b,
 
 	if (test_bit(SCREEN_OFF, &b->state))
 		return;
+
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+	do_stune_boost("top-app", dynamic_stune_boost);
+#endif
 
 	do {
 		curr_expires = atomic_long_read(&b->max_boost_expires);
@@ -141,6 +159,9 @@ static void input_unboost_worker(struct work_struct *work)
 
 	clear_bit(INPUT_BOOST, &b->state);
 	wake_up(&b->boost_waitq);
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+	reset_stune_boost("top-app");
+#endif
 }
 
 static void max_unboost_worker(struct work_struct *work)
@@ -150,6 +171,9 @@ static void max_unboost_worker(struct work_struct *work)
 
 	clear_bit(MAX_BOOST, &b->state);
 	wake_up(&b->boost_waitq);
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+	reset_stune_boost("top-app");
+#endif
 }
 
 static int cpu_boost_thread(void *data)
@@ -278,6 +302,9 @@ free_handle:
 
 static void cpu_input_boost_input_disconnect(struct input_handle *handle)
 {
+#ifdef CONFIG_DYNAMIC_STUNE_BOOST
+	reset_stune_boost("top-app");
+#endif
 	input_close_device(handle);
 	input_unregister_handle(handle);
 	kfree(handle);
