@@ -17,11 +17,13 @@ unsigned int input_boost_freq_hp = CONFIG_INPUT_BOOST_FREQ_PERF;
 unsigned short input_boost_duration = CONFIG_INPUT_BOOST_DURATION_MS;
 
 
+
 module_param(input_boost_freq_lp, uint, 0644);
 module_param(input_boost_freq_hp, uint, 0644);
 module_param(input_boost_duration, short, 0644);
 
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
+static unsigned short dynamic_stune_boost;
 static int dynamic_stune_boost;
 module_param(dynamic_stune_boost, uint, 0644);
 static bool stune_boost_active;
@@ -96,11 +98,15 @@ static void update_online_cpu_policy(void)
 
 static void __cpu_input_boost_kick(struct boost_drv *b)
 {
+	unsigned int ret;
+
 	if (test_bit(SCREEN_OFF, &b->state))
 		return;
 
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	do_stune_boost("top-app", dynamic_stune_boost);
+	ret = do_stune_boost("top-app", dynamic_stune_boost);
+	if (!ret)
+		stune_boost_active = true;
 #endif
 
 	set_bit(INPUT_BOOST, &b->state);
@@ -160,7 +166,10 @@ static void input_unboost_worker(struct work_struct *work)
 	clear_bit(INPUT_BOOST, &b->state);
 	wake_up(&b->boost_waitq);
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	reset_stune_boost("top-app");
+	if (stune_boost_active) {
+		reset_stune_boost("top-app");
+		stune_boost_active = false;
+	}
 #endif
 }
 
@@ -172,7 +181,10 @@ static void max_unboost_worker(struct work_struct *work)
 	clear_bit(MAX_BOOST, &b->state);
 	wake_up(&b->boost_waitq);
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	reset_stune_boost("top-app");
+	if (stune_boost_active) {
+		reset_stune_boost("top-app");
+		stune_boost_active = false;
+	}
 #endif
 }
 
@@ -303,7 +315,10 @@ free_handle:
 static void cpu_input_boost_input_disconnect(struct input_handle *handle)
 {
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	reset_stune_boost("top-app");
+	if (stune_boost_active) {
+		reset_stune_boost("top-app");
+		stune_boost_active = false;
+	}
 #endif
 	input_close_device(handle);
 	input_unregister_handle(handle);
