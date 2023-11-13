@@ -4,7 +4,7 @@
  *
  * This file contains the interrupt descriptor management code
  *
- * Detailed information is available in Documentation/DocBook/genericirq
+ * Detailed information is available in Documentation/DocBook/genericirqz
  *
  */
 #include <linux/irq.h>
