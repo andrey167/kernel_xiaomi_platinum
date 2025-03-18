@@ -35,7 +35,7 @@
 #include "internals.h"
 
 /* Perform IRQ balancing every POLL_MS milliseconds */
-#define POLL_MS CONFIG_IRQ_SBALANCE_POLL_MSEC
+#define POLL_MS (CONFIG_IRQ_SBALANCE_POLL_MSEC ? CONFIG_IRQ_SBALANCE_POLL_MSEC : 100)
 
 /*
  * There needs to be a difference of at least this many new interrupts between
@@ -45,7 +45,7 @@
  * This threshold is compared to the _scaled_ interrupt counts per CPU; i.e.,
  * the number of interrupts scaled to the CPU's capacity.
  */
-#define IRQ_SCALED_THRESH CONFIG_IRQ_SBALANCE_THRESH
+#define IRQ_SCALED_THRESH (CONFIG_IRQ_SBALANCE_THRESH ? CONFIG_IRQ_SBALANCE_THRESH : 100)
 
 struct bal_irq {
 	struct list_head node;
