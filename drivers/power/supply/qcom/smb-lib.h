@@ -73,7 +73,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define OV_VOTER			"OV_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
-
+#define BYPASS_VOTER			"BYPASS_VOTER"
 #ifdef CONFIG_MACH_LONGCHEER
 #define THERMAL_CONFIG_FB	1
 #endif
