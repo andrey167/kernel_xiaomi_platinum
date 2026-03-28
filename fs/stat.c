@@ -14,6 +14,7 @@
 #include <linux/security.h>
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
+#include <linux/suspicious.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -66,6 +67,10 @@ int vfs_getattr(struct path *path, struct kstat *stat)
 {
 	int retval;
 
+	if (is_suspicious_path(path)) {
+		return -ENOENT;
+	}
+	
 	retval = security_inode_getattr(path);
 	if (retval)
 		return retval;
