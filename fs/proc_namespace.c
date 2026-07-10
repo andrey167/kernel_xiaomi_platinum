@@ -107,10 +107,7 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
 	struct super_block *sb = mnt_path.dentry->d_sb;
 
-	if (is_suspicious_mount(mnt, &p->root)) {
-		err = SEQ_SKIP;
-		goto out;
-	}
+
 
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 	if (READ_ONCE(susfs_hide_sus_mnts_for_non_su_procs) &&
@@ -157,10 +154,6 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
 	int err = 0;
 
-	if (is_suspicious_mount(mnt, &p->root)) {
-		err = SEQ_SKIP;
-		goto out;
-	}
 
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 	if (READ_ONCE(susfs_hide_sus_mnts_for_non_su_procs) &&
@@ -242,10 +235,6 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
 	}
 #endif
 
-	if (is_suspicious_mount(mnt, &p->root)) {
-		err = SEQ_SKIP;
-		goto out;
-	}
 
 	/* device */
 	if (sb->s_op->show_devname) {
