@@ -1,6 +1,8 @@
 #ifndef __LINUX_COMPILER_H
 #define __LINUX_COMPILER_H
-
+#ifndef __nocfi
+#define __nocfi
+#endif
 #ifndef __ASSEMBLY__
 
 #ifdef __CHECKER__
