@@ -9,7 +9,16 @@
 #include <linux/fb.h>
 #include <linux/input.h>
 #include <linux/kthread.h>
+#include <linux/moduleparam.h>
 
+static unsigned int msm_cpubw_boost_freq = CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ;
+static unsigned short input_boost_duration = CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS;
+static unsigned short wake_boost_duration = CONFIG_DEVFREQ_WAKE_BOOST_DURATION_MS;
+
+
+module_param(msm_cpubw_boost_freq, uint, 0644);
+module_param(input_boost_duration, short, 0644);
+module_param(wake_boost_duration, short, 0644);
 enum {
 	SCREEN_OFF,
 	INPUT_BOOST,
@@ -58,7 +67,7 @@ static void __devfreq_boost_kick(struct boost_dev *b)
 
 	set_bit(INPUT_BOOST, &b->state);
 	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
-		msecs_to_jiffies(CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS)))
+		msecs_to_jiffies(input_boost_duration)))
 		wake_up(&b->boost_waitq);
 }
 
@@ -139,8 +148,8 @@ static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 		df->max_boost = false;
 	} else {
 		df->min_freq = test_bit(INPUT_BOOST, &state) ?
-			       min(b->boost_freq, df->max_freq) :
-			       df->profile->freq_table[0];
+				   min((unsigned long)msm_cpubw_boost_freq, df->max_freq) :
+				   df->profile->freq_table[0];
 		df->max_boost = test_bit(MAX_BOOST, &state);
 	}
 	update_devfreq(df);
@@ -192,7 +201,7 @@ static int fb_notifier_cb(struct notifier_block *nb, unsigned long action,
 		if (*blank == FB_BLANK_UNBLANK) {
 			clear_bit(SCREEN_OFF, &b->state);
 			__devfreq_boost_kick_max(b,
-				CONFIG_DEVFREQ_WAKE_BOOST_DURATION_MS);
+				wake_boost_duration);
 		} else {
 			set_bit(SCREEN_OFF, &b->state);
 			wake_up(&b->boost_waitq);
