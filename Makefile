@@ -677,6 +677,7 @@ ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
 else
 KBUILD_CFLAGS   += -O3
+KBUILD_CFLAGS += -march=armv8-a+crypto+crc -mcpu=cortex-a73.cortex-a53 -mtune=cortex-a73.cortex-a53
 endif
 
 ifdef CONFIG_CC_WERROR
