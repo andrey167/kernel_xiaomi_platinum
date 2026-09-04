@@ -776,7 +776,9 @@ static ssize_t comp_algorithm_store(struct device *dev,
 	struct zram *zram = dev_to_zram(dev);
 	char compressor[ARRAY_SIZE(zram->compressor)];
 	size_t sz;
-
+   if (!strncmp(current->comm, "init", sizeof("init")) ||
+		!strncmp(current->comm, "init.qcom.post_", sizeof("init.qcom.post_")))
+		return len;
 	strlcpy(compressor, buf, sizeof(compressor));
 	/* ignore trailing newline */
 	sz = strlen(compressor);
