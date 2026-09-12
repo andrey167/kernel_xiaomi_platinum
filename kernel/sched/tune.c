@@ -993,28 +993,26 @@ static struct cftype files[] = {
 static int
 schedtune_boostgroup_init(struct schedtune *st)
 {
-	struct boost_groups *bg;
-	int cpu;
+    struct boost_groups *bg;
+    int cpu;
+    int idx = st->idx;
 
-	/* Keep track of allocated boost groups */
-	allocated_group[st->idx] = st;
+    /* Keep track of allocated boost groups */
+    allocated_group[idx] = st;
 
-	/* Initialize the per CPU boost groups */
-	for_each_possible_cpu(cpu) {
-		bg = &per_cpu(cpu_boost_groups, cpu);
-		bg->group[st->idx].boost = 0;
-		bg->group[st->idx].tasks = 0;
-		bg->group[st->idx].ts = 0;
-	}
+    /* Initialize the per CPU boost groups */
+    for_each_possible_cpu(cpu) {
+        bg = &per_cpu(cpu_boost_groups, cpu);
+        bg->group[idx].boost = 0;
+        bg->group[idx].tasks = 0;
+        bg->group[idx].ts = 0;
+    }
 
-	/* Keep track of allocated boost groups */
-	allocated_group[idx] = st;
-	st->idx = idx;
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
-	boost_slots_init(st);
+    boost_slots_init(st);
 #endif // CONFIG_DYNAMIC_STUNE_BOOST
 
-	return 0;
+    return 0;
 }
 
 static struct cgroup_subsys_state *
