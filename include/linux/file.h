@@ -69,7 +69,7 @@ extern bool get_close_on_exec(unsigned int fd);
 extern void put_filp(struct file *);
 extern int get_unused_fd_flags(unsigned flags);
 extern void put_unused_fd(unsigned int fd);
-
+extern void flush_delayed_fput_wait(void);
 extern void fd_install(unsigned int fd, struct file *file);
 
 extern void flush_delayed_fput(void);

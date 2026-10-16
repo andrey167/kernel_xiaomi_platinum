@@ -45,7 +45,9 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 # define __rcu
 # define __pmem
 #endif
-
+#ifndef __nocfi
+#define __nocfi
+#endif
 /* Indirect macros required for expanded argument pasting, eg. __LINE__. */
 #define ___PASTE(a,b) a##b
 #define __PASTE(a,b) ___PASTE(a,b)

@@ -57,7 +57,7 @@ static struct ext4_lazy_init *ext4_li_info;
 static struct mutex ext4_li_mtx;
 static int ext4_mballoc_ready;
 static struct ratelimit_state ext4_mount_msg_ratelimit;
-
+static void ext4_umount_end(struct super_block *sb, int flags);
 static int ext4_load_journal(struct super_block *, struct ext4_super_block *,
 			     unsigned long journal_devnum);
 static int ext4_show_options(struct seq_file *seq, struct dentry *root);
@@ -1141,6 +1141,7 @@ static const struct super_operations ext4_sops = {
 	.freeze_fs	= ext4_freeze,
 	.unfreeze_fs	= ext4_unfreeze,
 	.statfs		= ext4_statfs,
+	.umount_end	= ext4_umount_end,
 	.remount_fs	= ext4_remount,
 	.show_options	= ext4_show_options,
 #ifdef CONFIG_QUOTA
@@ -4780,7 +4781,24 @@ struct ext4_mount_options {
 	char *s_qf_names[EXT4_MAXQUOTAS];
 #endif
 };
-
+static void ext4_umount_end(struct super_block *sb, int flags)
+{
+	/*
+	 * this is called at the end of umount(2). If there is an unclosed
+	 * namespace, ext4 won't do put_super() which triggers fsck in the
+	 * next boot.
+	 */
+	if ((flags & MNT_FORCE) || atomic_read(&sb->s_active) > 1) {
+		ext4_msg(sb, KERN_ERR,
+			"errors=remount-ro for active namespaces on umount %x",
+						flags);
+		clear_opt(sb, ERRORS_PANIC);
+		set_opt(sb, ERRORS_RO);
+		/* to write the latest s_kbytes_written */
+		if (!(sb->s_flags & MS_RDONLY))
+			ext4_commit_super(sb, 1);
+	}
+}
 static int ext4_remount(struct super_block *sb, int *flags, char *data)
 {
 	struct ext4_super_block *es;

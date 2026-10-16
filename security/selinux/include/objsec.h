@@ -134,5 +134,10 @@ struct bpf_security_struct {
 };
 
 extern unsigned int selinux_checkreqprot;
+static inline u32 current_sid(void)
+{
+	const struct task_security_struct *tsec = current_security();
 
+	return tsec->sid;
+}
 #endif /* _SELINUX_OBJSEC_H_ */
