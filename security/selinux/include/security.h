@@ -12,7 +12,7 @@
 #include <linux/dcache.h>
 #include <linux/magic.h>
 #include <linux/types.h>
-
+#include <linux/security.h>
 #define SECSID_NULL			0x00000000 /* unspecified SID */
 #define SECSID_WILD			0xffffffff /* wildcard SID */
 #define SECCLASS_NULL			0x0000 /* no class */
