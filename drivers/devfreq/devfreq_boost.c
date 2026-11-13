@@ -9,7 +9,11 @@
 #include <linux/fb.h>
 #include <linux/input.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
 
+#ifdef CONFIG_KPROFILES
+#include <linux/kprofiles.h>
+#endif
 enum {
 	SCREEN_OFF,
 	INPUT_BOOST,
@@ -54,12 +58,25 @@ static struct df_boost_drv df_boost_drv_g __read_mostly = {
 
 static void __devfreq_boost_kick(struct boost_dev *b)
 {
+	unsigned int duration = CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS;
 	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state))
 		return;
+#ifdef CONFIG_KPROFILES
+switch (active_mode()) {
+case 0: /* Disabled */
+case 1: /* Battery */
+    return;
+case 2: /* Balanced */
+    break;
+case 3: /* Performance */
+    duration = (duration * 3) / 2;
+    break;
+}
+#endif
 
 	set_bit(INPUT_BOOST, &b->state);
 	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
-		msecs_to_jiffies(CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS)))
+		 msecs_to_jiffies(duration)))
 		wake_up(&b->boost_waitq);
 }
 
@@ -73,11 +90,25 @@ void devfreq_boost_kick(enum df_device device)
 static void __devfreq_boost_kick_max(struct boost_dev *b,
 				     unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long boost_jiffies;
 	unsigned long curr_expires, new_expires;
 
 	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state))
 		return;
+#ifdef CONFIG_KPROFILES
+switch (active_mode()) {
+case 0: /* Disabled */
+case 1: /* Battery */
+    return;
+case 2: /* Balanced */
+    break;
+case 3: /* Performance */
+    duration_ms = (duration_ms * 3) / 2;
+    break;
+}
+#endif
+
+	boost_jiffies = msecs_to_jiffies(duration_ms);
 
 	do {
 		curr_expires = atomic_long_read(&b->max_boost_expires);
@@ -141,15 +172,29 @@ static void devfreq_max_unboost(struct work_struct *work)
 static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 {
 	struct devfreq *df = b->df;
+	unsigned long boost_freq = (unsigned long)CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ;
+	unsigned long min_freq = 0;
 
 	mutex_lock(&df->lock);
-	if (test_bit(SCREEN_OFF, &state)) {
-		df->min_freq = df->profile->freq_table[0];
+	if (df->profile && df->profile->freq_table)
+		min_freq = df->profile->freq_table[0];
+
+#ifdef CONFIG_KPROFILES
+	/* Perfomance */
+	if (active_mode() == 3)
+		boost_freq = df->max_freq;
+#endif
+
+if (test_bit(SCREEN_OFF, &state)
+#ifdef CONFIG_KPROFILES
+    || active_mode() <= 1 /* Disabled / Battery */
+#endif
+	) {
+		df->min_freq = min_freq;
 		df->max_boost = false;
 	} else {
 		df->min_freq = test_bit(INPUT_BOOST, &state) ?
-			       min(b->boost_freq, df->max_freq) :
-			       df->profile->freq_table[0];
+			       min(boost_freq, df->max_freq) : min_freq;
 		df->max_boost = test_bit(MAX_BOOST, &state);
 	}
 	update_devfreq(df);
@@ -200,8 +245,7 @@ static int fb_notifier_cb(struct notifier_block *nb, unsigned long action,
 
 		if (*blank == FB_BLANK_UNBLANK) {
 			clear_bit(SCREEN_OFF, &b->state);
-			__devfreq_boost_kick_max(b,
-				CONFIG_DEVFREQ_WAKE_BOOST_DURATION_MS);
+			__devfreq_boost_kick_max(b, CONFIG_DEVFREQ_WAKE_BOOST_DURATION_MS);
 		} else {
 			set_bit(SCREEN_OFF, &b->state);
 			wake_up(&b->boost_waitq);
