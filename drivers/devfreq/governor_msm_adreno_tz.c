@@ -24,6 +24,11 @@
 #include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
 #include "governor.h"
+#ifdef CONFIG_KPROFILES
+#include <linux/kprofiles.h>
+#endif
+
+
 
 static DEFINE_SPINLOCK(tz_lock);
 static DEFINE_SPINLOCK(sample_lock);
@@ -430,7 +435,23 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	int context_count = 0;
 #if 1
 	int last_level = priv->bin.last_level;
-//	int max_state_val = devfreq->profile->max_state - 1;
+unsigned int local_adrenoboost = adrenoboost;
+#endif
+#ifdef CONFIG_KPROFILES
+	switch (active_mode()) {
+	case 1: /* Battery */
+		local_adrenoboost = 0;
+		break;
+	case 2: /* Balanced  */
+		local_adrenoboost = 1;
+		break;
+	case 3: /* Performance  */
+		local_adrenoboost = 3;
+		break;
+	case 0: /* Disabled  */
+	default:
+		break;
+	}
 #endif
 	/* keeps stats.private_data == NULL   */
 	result = devfreq->profile->get_dev_status(devfreq->dev.parent, &stats);
@@ -466,11 +487,11 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	priv->bin.total_time += stats.total_time;
 #if 1
 	// scale busy time up based on adrenoboost parameter, only if MIN_BUSY exceeded...
-	if ((unsigned int)(priv->bin.busy_time + stats.busy_time) >= MIN_BUSY && adrenoboost) {
-		if (adrenoboost == 1) {
-			priv->bin.busy_time += (unsigned int)((stats.busy_time * ( 1 + adrenoboost ) * lvl_multiplicator_map_1[ last_level ]) / lvl_divider_map_1[ last_level ]);
+	if ((unsigned int)(priv->bin.busy_time + stats.busy_time) >= MIN_BUSY && local_adrenoboost) {
+		if (local_adrenoboost == 1) {
+			priv->bin.busy_time += (unsigned int)((stats.busy_time * ( 1 + local_adrenoboost ) * lvl_multiplicator_map_1[ last_level ]) / lvl_divider_map_1[ last_level ]);
 		} else
-		if (adrenoboost == 2) {
+		if (local_adrenoboost == 2) {
 			priv->bin.busy_time += (unsigned int)((stats.busy_time * ( 1 + 3 ) * lvl_multiplicator_map_2[ last_level ]  * 8 ) / (lvl_divider_map_2[ last_level ] * 10));
 		} else {
 			priv->bin.busy_time += (unsigned int)((stats.busy_time * ( 1 + 4 ) * lvl_multiplicator_map_3[ last_level ]  * 9 ) / (lvl_divider_map_3[ last_level ] * 10));
@@ -541,7 +562,7 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	 * frequency changes.
 	 */
 #if 1
-	if (!adrenoboost && val) {
+	if (!local_adrenoboost && val) {
 		level += val;
 		level = max(level, 0);
 		level = min_t(int, level, devfreq->profile->max_state - 1);
