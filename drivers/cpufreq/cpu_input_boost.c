@@ -10,7 +10,12 @@
 #include <linux/fb.h>
 #include <linux/input.h>
 #include <linux/kthread.h>
-
+#include <linux/slab.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#ifdef CONFIG_KPROFILES
+#include <linux/kprofiles.h>
+#endif
 
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
 static int dynamic_stune_boost;
@@ -52,6 +57,26 @@ static struct boost_drv boost_drv_g __read_mostly = {
 static unsigned int get_input_boost_freq(struct cpufreq_policy *policy)
 {
 	unsigned int freq;
+	#ifdef CONFIG_KPROFILES
+int mode = active_mode();
+
+    /* on Performance mode use maximum freg */
+    if (mode == 3)
+        return policy->max;
+
+    /*  Balanced (2) 1.1 Ghz  1.4 Ghz */
+    if (mode == 2) {
+        if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
+            freq = 1113600; /* 1.1 GHz for little cluster */
+        else
+            freq = 1401600; /* 1.4 GHz for big cluster */
+        return min(freq, policy->max);
+    }
+
+    /* Disable boost on battery mode */
+    if (mode == 1)
+        return policy->cpuinfo.min_freq;
+#endif
 
 	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
 		freq = CONFIG_INPUT_BOOST_FREQ_LP;
@@ -81,9 +106,11 @@ static void update_online_cpu_policy(void)
 	for_each_possible_cpu(cpu) {
 		if (cpu_online(cpu)) {
 			if (cpumask_intersects(cpumask_of(cpu), cpu_lp_mask))
-				cpufreq_update_policy(cpu);
+				if (cpu < nr_cpu_ids)
+		cpufreq_update_policy(cpu);
 			if (cpumask_intersects(cpumask_of(cpu), cpu_perf_mask))
-				cpufreq_update_policy(cpu);
+				if (cpu < nr_cpu_ids)
+		cpufreq_update_policy(cpu);
 		}
 	}
 	put_online_cpus();
@@ -100,9 +127,22 @@ bool cpu_input_boost_within_input(unsigned long timeout_ms)
 static void __cpu_input_boost_kick(struct boost_drv *b)
 {
 	unsigned int ret;
+	unsigned int duration = CONFIG_INPUT_BOOST_DURATION_MS;
 
 	if (test_bit(SCREEN_OFF, &b->state))
 		return;
+#ifdef CONFIG_KPROFILES
+switch (active_mode()) {
+case 0: /* Disabled */
+case 1: /* Battery */
+    return;
+case 2: /* Balanced */
+    break;
+case 3: /* Performance */
+    duration = (duration * 3) / 2;
+    break;
+}
+#endif
 
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
 	ret = do_stune_boost("top-app", dynamic_stune_boost, &boost_slot);
@@ -112,7 +152,7 @@ static void __cpu_input_boost_kick(struct boost_drv *b)
 
 	set_bit(INPUT_BOOST, &b->state);
 	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
-			      msecs_to_jiffies(CONFIG_INPUT_BOOST_DURATION_MS)))
+			      msecs_to_jiffies(duration)))
 		wake_up(&b->boost_waitq);
 }
 
@@ -126,11 +166,25 @@ void cpu_input_boost_kick(void)
 static void __cpu_input_boost_kick_max(struct boost_drv *b,
 				       unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long boost_jiffies;
 	unsigned long curr_expires, new_expires;
 
 	if (test_bit(SCREEN_OFF, &b->state))
 		return;
+#ifdef CONFIG_KPROFILES
+switch (active_mode()) {
+case 0: /* Disabled */
+case 1: /* Battery */
+    return;
+case 2: /* Balanced */
+    break;
+case 3: /* Performance */
+    duration_ms = (duration_ms * 3) / 2;
+    break;
+}
+#endif
+
+	boost_jiffies = msecs_to_jiffies(duration_ms);
 
 #ifdef CONFIG_DYNAMIC_STUNE_BOOST
 	do_stune_boost("top-app", dynamic_stune_boost, &boost_slot);
@@ -226,8 +280,12 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 	if (action != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	/* Unboost when the screen is off */
-	if (test_bit(SCREEN_OFF, &b->state)) {
+	/* Unboost when screen is off or in Battery mode */
+	if (test_bit(SCREEN_OFF, &b->state)
+#ifdef CONFIG_KPROFILES
+    || active_mode() <= 1
+#endif
+	) {
 		policy->min = policy->cpuinfo.min_freq;
 		return NOTIFY_OK;
 	}
